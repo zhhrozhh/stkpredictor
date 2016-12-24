@@ -1,7 +1,53 @@
 
 # coding: utf-8
 
-# In[10]:
+# In[2]:
+
+from functools import reduce
+def stkdata(stk):
+    return DailyData(stk,['Dec','1','2000'],['Dec','1','2017']).getData()
+def mu(dt):
+    return reduce(lambda x,y:x+y,dt)/float(len(dt))
+def sigma(dt):
+    m = mu(dt)
+    n = float(len(dt))
+    return (reduce(lambda x,y:x+y,[(x-m)**2 for x in dt])/n)**0.5
+def cov(dt1,dt2):
+    m1 = mu(dt1)
+    m2 = mu(dt2)
+    res = D_i(0)
+    for i in range(len(dt1)):
+        res = res + (dt1[i]-m1)*(dt2[i]-m2)
+    return res/float(len(dt1))
+def __similarity(dt1,dt2):
+    s1 = sigma(dt1)
+    s2 = sigma(dt2)
+    return cov(dt1,dt2)//(s1*s2)
+def __similarity_cos(dt1,dt2):
+    ab = reduce(lambda x,y:x+y,[dt1[i]*dt2[i] for i in range(len(dt1))])
+    aa = reduce(lambda x,y:x+y,[x**2 for x in dt1])**0.5
+    bb = reduce(lambda x,y:x+y,[x**2 for x in dt2])**0.5
+    return ab//(aa*bb)
+def stk_covSimilarity(stk1,stk2,nd = 9999):
+    dt1 = stkdata(stk1)
+    dt2 = stkdata(stk2)
+    wsize = len(dt1)
+    n = min(len(dt2) - len(dt1),nd)
+    res = []
+    for i in range(n):
+        res.append(__similarity(dt1,dt2[n-i:n-i+wsize]))
+    return mu(res)
+def stk_cosSimilarity(stk1,stk2,nd = 9999):
+    dt1 = stkdata(stk1)
+    dt2 = stkdata(stk2)
+    wsize = len(dt1)
+    n = min(len(dt2)-len(dt1),nd)
+    res = []
+    for i in range(n):
+        res.append(__similarity_cos(dt1,dt2[n-i:n-i+wsize]))
+    return mu(res)
+
+
 
 def dicIncDef(dic,key):
     try:
@@ -10,25 +56,85 @@ def dicIncDef(dic,key):
         dic[key]=1
 
 
-# In[517]:
+# In[1]:
 
 class D_i:
     def __init__(self,l,**arg):
-        #print(arg['close'],arg['open'],l)
+        if not l:
+            self.inc = 0
+            self.o = 0
+            self.h = 0
+            self.l = 0
+            self.c = 0
+            self.v = 0
+            return
         self.inc = (float(arg['close'])-float(arg['open']))*100.0/l
-        #print(arg)
         if arg['s_avg']:
             self.inc = (float(arg['open'])/2+float(arg['close'])/2)*100/l-100
         self.o = float(arg['open'])
         self.c = float(arg['close'])
         self.h = float(arg['high'])
         self.l = float(arg['low'])
-        self.v = float(arg['volume'])
+        self.v = float(arg['volume'])/10000.0
+    def __add__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc+oth.inc
+        res.h = self.h+oth.h
+        res.l = self.l+oth.l
+        res.o = self.o+oth.o
+        res.c = self.c+oth.c
+        res.v = self.v+oth.v
+        return res
+    def __sub__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc-oth.inc
+        res.h = self.h-oth.h
+        res.l = self.l-oth.l
+        res.o = self.o-oth.o
+        res.c = self.c-oth.c
+        res.v = self.v-oth.v
+        return res
+    def __mul__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc*oth.inc
+        res.h = self.h*oth.h
+        res.l = self.l*oth.l
+        res.o = self.o*oth.o
+        res.c = self.c*oth.c
+        res.v = self.v*oth.v
+        return res
+    def __truediv__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc/oth
+        res.h = self.h/oth
+        res.l = self.l/oth
+        res.o = self.o/oth
+        res.c = self.c/oth
+        res.v = self.v/oth
+        return res
+    def __floordiv__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc/oth.inc
+        res.h = self.h/oth.h
+        res.l = self.l/oth.l
+        res.o = self.o/oth.o
+        res.c = self.c/oth.c
+        res.v = self.v/oth.v
+        return res
+    def __pow__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc**oth
+        res.h = self.h**oth
+        res.l = self.l**oth
+        res.o = self.o**oth
+        res.c = self.c**oth
+        res.v = self.v**oth
+        return res
     def __str__(self):
         return str([self.inc,self.o,self.h,self.l,self.c,self.v])
 
 
-# In[505]:
+# In[3]:
 
 import matplotlib.pyplot as plt
 get_ipython().magic('matplotlib inline')
@@ -43,27 +149,16 @@ def plt_data(data,**arg ):
     if 'yshift' in arg:
         yshift = arg['yshift']
     p = [getattr(d,att)*factor+yshift for d in data]
-    #print(exec(r'p = [d.'+arg+' for d in data]'))
-    #print(p)
-    return plt.plot(p)
-    
+    return plt.plot(p) 
 
 
-# In[518]:
-
-mdata = DailyData('yrd',['Dec','18','2015'],['Dec','21','2016'])
-
-
-# In[521]:
-
-mdata.getData(s_avg = True)
-plt_data(mdata.data)
-plt_data(mdata.getdData(order=2),factor = 1,yshift = -40)
-
-
-# In[524]:
+# In[4]:
 
 import copy
+import urllib
+import urllib.request
+import csv
+import io
 class DailyData:
     def __init__(self,scode,sdate,edate):
         f = urllib.request.urlopen('http://www.google.com/finance/historical?q='+                            scode+                           '&startdate='+sdate[0]+'+'+sdate[1]+'%2C+'+sdate[2]+                           '&enddate='+edate[0]+'+'+edate[1]+'%2C+'+edate[2]+                           '&output=csv')
@@ -99,12 +194,11 @@ class DailyData:
             for dv in dvar:
                 for i in range(1,len(dt)):
                     setattr( res[(od+1)%2][i-1],dv, getattr(res[od%2][i],dv)-getattr(res[od%2][i-1],dv))
-                    #res[(od+1)%2][i-1].eval(dv) = res[od%2][i].eval(dv)-res[od%2][i-1].eval(dv)
         return res[order%2]
         
 
 
-# In[117]:
+# In[5]:
 
 class RScale:
     def __init__(self,**arg):
@@ -157,7 +251,7 @@ class RScale:
 
 
 
-# In[101]:
+# In[6]:
 
 class Queue_n:
     def __init__(self,n,**arg):
@@ -179,7 +273,7 @@ class Queue_n:
         return res
 
 
-# In[357]:
+# In[17]:
 
 from math import log
 class BbayesSS:
@@ -218,13 +312,15 @@ class BbayesSS:
                 dicIncDef(self.ngram_feature[n][y],que.tstr(self.rule.rule))
             que.append(y)
     def ngram_dist(self,n,evi):
-        ff = [self.rule.fit(evi[i].inc) for i in range(n)]
+        try:
+            ff = [self.rule.fit(evi[i].inc) for i in range(n)]
+        except:
+            ff = evi
         ff = Queue_n(n,queue=ff).tstr(self.rule.rule)
         res = self.rule.counter()
         dist = {}
         for key in self.ngram_l[n]:
             p_key = log(float(self.ngram_l[n][key]+self.k)/float(sum(self.ngram_l[n][qq] for qq in self.ngram_l[n])+self.k))
-            #print('p_key',p_key)
             try:
                 p_key += log(float(self.ngram_feature[n][key][ff]+self.k)/float(self.ngram_l[n][key]+self.k*2))
             except:
@@ -282,7 +378,10 @@ class BbayesSS:
         for inc in self.rule.rule:
             p = log(float(self.labelCount[inc]+self.k)/float(sum(self.labelCount[x] for x in self.labelCount)+self.k))
             for i in range(n):
-                f = self.rule.fit(nday[i].inc)
+                try:
+                    f = self.rule.fit(nday[i].inc)
+                except:
+                    f = nday[i]
                 try:
                     p+=w[i]*log(float(self.labelFeature[inc][i][f]+self.k)/float(self.labelCount[inc]+2*self.k))
                 except Exception as e:
@@ -294,165 +393,35 @@ class BbayesSS:
             if dist[x]<0.00001:
                 dist[x]=0
         return dist
+    def n_day_bayes_codist(self,n,nday,coset=[]):
+        sim = [stk_covSimilarity(self.code,oth.code) for oth in coset]
+        codist = [oth.n_day_bayes_dist(n,nday) for oth in coset]
+        mdist = self.n_day_bayes_dist(n,nday)
+        for i in range(len(sim)):
+            for f in self.rule.rule:
+                mdist[f]+=sim[i]*codist[i][f]
+        s = sum(mdist[x] for x in mdist)
+        for x in mdist:
+            mdist[x] = mdist[x]/s
+        return mdist
+        
 
 
-# In[544]:
+# In[19]:
 
-a=BbayesSS(code = 'yrd')
-
-data = DailyData('yrd',['Dec','18','2015'],['Dec','21','2016']).getData()
-ddd = 0
-a.n_day_bayes_train(9,['Dec','1','2015'],['Dec','21','2016'])
-nd_dist = a.n_day_bayes_dist(9,data[-9-ddd:])
-a.ngram_train(2,['Dec','1','2015'],['Dec','21','2016'])
-ng_dist = a.ngram_dist(2,data[-2-ddd:])
-print('Dec','22-',ddd,'2016')
-print('=======bayes')
-for x in a.rule.rule:
-    print(x,nd_dist[x])
-#print(sum(nd_dist[x] for x in nd_dist))
-print(a.rule.exp(nd_dist))
-print('=======ngram')
-
-for x in a.rule.rule:
-    print(x,ng_dist[x])
-#print(sum(ng_dist[x] for x in ng_dist))
-print(a.rule.exp(ng_dist))
-
-
-# In[ ]:
-
-Dec 22- 0 2016
-=======bayes
--12.5 0.0007269219039675484
--10.0 0.11698531056171098
--5.0 0.016498456635787636
--2.5 0.14488204050537568
--0.0001 0.056799016865410314
-0.0001 0.021774293313894227
-2.5 0.1677546664813892
-5.0 0.29046562126816056
-10.0 0.1714269556087545
-12.5 0.01268671685554932
-(1.241775249886257, 4.475643490416318)
-=======ngram
--12.5 0.01792486162543823
--10.0 0.01792486162543823
--5.0 0.04915196910680665
--2.5 0.06206248444383042
--0.0001 0.07387242201601357
-0.0001 0.06103445502670946
-2.5 0.34031361188186415
-5.0 0.34368209386886256
-10.0 0.01792486162543823
-12.5 0.016108378779598507
-(1.515169244530631, 4.912157810269509)
-
-
-Dec 22- 1 2016
-=======bayes
--12.5 0.539216811377036
--10.0 0.010141317978182785
--5.0 0.07289947690273746
--2.5 0.04764955392904791
--0.0001 0.02064256353300795
-0.0001 0.12621499059425406
-2.5 0.016786306639376653
-5.0 0.13072426899026532
-10.0 0.03453135812064179
-12.5 0.00119335193545018
-(-6.829995350996995, -5.171976080301118)
-=======ngram
--12.5 0.025454329373006714
--10.0 0.025454329373006714
--5.0 0.06979860916755719
--2.5 0.08813227983296873
--0.0001 0.10490306708470283
-0.0001 0.08667241922509655
-2.5 0.06320757409821053
-5.0 0.4880482427003819
-10.0 0.025454329373006714
-12.5 0.022874819772062138
-(1.1014839639928617, 4.875259063251407)
-
-
-Dec 22- 2 2016
-=======bayes
--12.5 0.00015850212926257922
--10.0 0.06557537416769679
--5.0 0.17290161024564757
--2.5 0.3842240197660159
--0.0001 0.049658475115235086
-0.0001 0.09180785725414756
-2.5 0.08436171672439184
-5.0 0.1486693103685445
-10.0 0.0026411131406187433
-12.5 0
-(-3.61528468694102, -0.311772840083032)
-=======ngram
--12.5 0.01798730670465596
--10.0 0.01798730670465596
--5.0 0.34267300981246385
--2.5 0.062278692347608265
--0.0001 0.07412977235662925
-0.0001 0.061247081570712736
-2.5 0.04466564428790071
-5.0 0.3448793837573881
-10.0 0.01798730670465596
-12.5 0.01616449575332921
-(-2.1551342401926283, 1.9783536999016462)
-
-
-Dec 22- 3 2016
-=======bayes
--12.5 0.0004942132033657295
--10.0 0.7681562921822028
--5.0 0.062264090647766175
--2.5 0.009309160024048435
--0.0001 0.026227090848645173
-0.0001 0.013390010462181698
-2.5 0.059330636354406815
-5.0 0.014599397104033995
-10.0 0.045336041922186356
-12.5 0.0008930672511629012
-(-9.65703707577049, -6.968350519237443)
-=======ngram
--12.5 0.009138667257404743
--10.0 0.1623567651294653
--5.0 0.23059706942699887
--2.5 0.17522011404196214
--0.0001 0.17585053869472853
-0.0001 0.17515125695907596
-2.5 0.02269291716024768
-5.0 0.031641437817021806
-10.0 0.009138667257404743
-12.5 0.008212566255690203
-(-5.356389768170898, -2.2442066840231485)
-
-
-Dec 22- 4 2016
-=======bayes
--12.5 0.0007887375712144071
--10.0 0.0035572054408664895
--5.0 0.4518005845957549
--2.5 0.14777401712715507
--0.0001 0.11668774482631035
-0.0001 0.09335977640619544
-2.5 0.12276968989171598
-5.0 0.06301231126808778
-10.0 0.00023163984697848969
-12.5 1.829302572108103e-05
-(-4.978379402971444, -1.1933857445562992)
-=======ngram
--12.5 0.0055696130729848145
--10.0 0.0055696130729848145
--5.0 0.17155243124581088
--2.5 0.10678890152470079
--0.0001 0.280157368279116
-0.0001 0.14138800891997688
-2.5 0.105742246788785
-5.0 0.17265700850649537
-10.0 0.0055696130729848145
-12.5 0.005005195516160622
-(-1.8431866946168356, 1.490857728753346)
+yrd = BbayesSS(code = 'yrd')
+sdate = ['Dec','1','2000']
+edate = ['Dec','29','2016']
+data = DailyData('yrd',sdate,edate).getData()
+x = BbayesSS(code = 'x')
+bac = BbayesSS(code = 'bac')
+jpm = BbayesSS(code = 'jpm')
+#lmt = BbayesSS(code = 'lmt')
+nyt = BbayesSS(code = 'nyt')
+coset = [x,bac,jpm,nyt]
+yrd.n_day_bayes_train(9,sdate,edate)
+for stk in coset:
+    print(stk.code)
+    stk.n_day_bayes_train(9,sdate,edate)
+yrd.n_day_bayes_codist(9,data[-9:])
 
