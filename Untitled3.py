@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[2]:
+# In[3]:
 
 from functools import reduce
 def stkdata(stk):
@@ -56,7 +56,7 @@ def dicIncDef(dic,key):
         dic[key]=1
 
 
-# In[1]:
+# In[14]:
 
 class D_i:
     def __init__(self,l,**arg):
@@ -112,6 +112,15 @@ class D_i:
         res.c = self.c/oth
         res.v = self.v/oth
         return res
+    def __and__(self,oth):
+        res = D_i(0)
+        res.inc = self.inc*oth
+        res.h = self.h*oth
+        res.l = self.l*oth
+        res.o = self.o*oth
+        res.c = self.c*oth
+        res.v = self.v*oth
+        return res
     def __floordiv__(self,oth):
         res = D_i(0)
         res.inc = self.inc/oth.inc
@@ -134,7 +143,7 @@ class D_i:
         return str([self.inc,self.o,self.h,self.l,self.c,self.v])
 
 
-# In[3]:
+# In[5]:
 
 import matplotlib.pyplot as plt
 get_ipython().magic('matplotlib inline')
@@ -152,7 +161,7 @@ def plt_data(data,**arg ):
     return plt.plot(p) 
 
 
-# In[4]:
+# In[95]:
 
 import copy
 import urllib
@@ -160,10 +169,15 @@ import urllib.request
 import csv
 import io
 class DailyData:
-    def __init__(self,scode,sdate,edate):
-        f = urllib.request.urlopen('http://www.google.com/finance/historical?q='+                            scode+                           '&startdate='+sdate[0]+'+'+sdate[1]+'%2C+'+sdate[2]+                           '&enddate='+edate[0]+'+'+edate[1]+'%2C+'+edate[2]+                           '&output=csv')
-        s = csv.reader(io.StringIO(f.read().decode('utf-8-sig')))
-        self.s = list(s)[1:][::-1]
+    def __init__(self,scode,sdate,edate,hourly = False):
+        if not hourly:
+            f = urllib.request.urlopen('http://www.google.com/finance/historical?q='+                            scode+                           '&startdate='+sdate[0]+'+'+sdate[1]+'%2C+'+sdate[2]+                           '&enddate='+edate[0]+'+'+edate[1]+'%2C+'+edate[2]+                           '&output=csv')
+            s = csv.reader(io.StringIO(f.read().decode('utf-8-sig')))
+            self.s = list(s)[1:][::-1]
+        if hourly:
+            f = urllib.request.urlopen('https://www.google.com/finance/getprices?i=3600&p=600d&f=d,o,h,l,c,v&df=cpct&q='+scode.upper())
+            s = csv.reader(io.StringIO(f.read().decode('utf-8-sig')))
+            self.s = list(s)[7:]
     def getData(self,**arg):
         setavg = False
         #print(arg)
@@ -172,10 +186,14 @@ class DailyData:
         res = []
         l = float(self.s[0][1])/2+float(self.s[0][4])/2
         for x in self.s:
-            res.append(D_i(l,open = x[1],high=x[2],low=x[3],close=x[4],volume=x[5],s_avg=setavg))
-            l = float(x[4])
-            if setavg:
-                l = (float(x[1])+float(x[4]))/2
+            try:
+                res.append(D_i(l,open = x[1],high=x[2],low=x[3],close=x[4],volume=x[5],s_avg=setavg))
+            
+                l = float(x[4])
+                if setavg:
+                    l = (float(x[1])+float(x[4]))/2
+            except:
+                pass
         self.data = res
         return copy.deepcopy(res)
     def getdData(self,**arg):
@@ -198,14 +216,14 @@ class DailyData:
         
 
 
-# In[5]:
+# In[23]:
 
 class RScale:
     def __init__(self,**arg):
         if 'rule' in arg:
             self.rule = arg['rule']
         else:
-            self.rule = [-12.5,-10.0,-5.0,-2.5,-0.0001,0.0001,2.5,5.0,10.0,12.5]
+            self.rule = [-12.5,-10.0,-5.0,-2.5,-1.25,-0.0001,0.0001,1.25,2.5,5.0,10.0,12.5]
         if 'dist' in arg:
             self.dist = arg['dist']
         else:
@@ -251,7 +269,7 @@ class RScale:
 
 
 
-# In[6]:
+# In[8]:
 
 class Queue_n:
     def __init__(self,n,**arg):
@@ -273,9 +291,10 @@ class Queue_n:
         return res
 
 
-# In[17]:
+# In[105]:
 
 from math import log
+import time
 class BbayesSS:
     def __init__(self,**arg):
         if 'code' in arg:
@@ -296,13 +315,13 @@ class BbayesSS:
     def set_training_data(self,td):
         self.td = True
         self.tdata = td
-    def ngram_train(self,n,sdate=[],edate=[]):
+    def ngram_train(self,n,sdate=[],edate=[],hourly=False):
         que = Queue_n(n)
         self.ngram_l[n] = {x:0 for x in self.rule.rule}
         self.ngram_feature[n] = {x:{} for x in self.rule.rule}
         tdata = []
         if not self.td:
-            tdata = DailyData(self.code,sdate,edate).getData()
+            tdata = DailyData(self.code,sdate,edate,hourly).getData()
         else:
             tdata = self.tdata
         for x in tdata:
@@ -332,10 +351,10 @@ class BbayesSS:
             if dist[x]<0.00001:
                 dist[x]=0
         return dist
-    def n_day_bayes_train(self,n,sdate,edate):
+    def n_day_bayes_train(self,n,sdate,edate,hourly = False):
         que = Queue_n(n)
         if not self.td:
-            tdata = DailyData(self.code,sdate,edate).getData()
+            tdata = DailyData(self.code,sdate,edate,hourly).getData()
         else:
             tdata = self.tdata
         self.featureCount = {x:{f:self.k for f in self.rule.rule} for x in range(n)}
@@ -394,34 +413,118 @@ class BbayesSS:
                 dist[x]=0
         return dist
     def n_day_bayes_codist(self,n,nday,coset=[]):
-        sim = [stk_covSimilarity(self.code,oth.code) for oth in coset]
+        sim = [stk_covSimilarity(self.code,oth.code,20) for oth in coset]
+        #ss = reduce(lambda x,y:x+y,[x**2 for x in sim])
+        print([x.inc for x in sim])
         codist = [oth.n_day_bayes_dist(n,nday) for oth in coset]
+        for i in range(len(coset)):
+            print(coset[i].code+':')
+            print(codist[i])
+            print()
         mdist = self.n_day_bayes_dist(n,nday)
         for i in range(len(sim)):
             for f in self.rule.rule:
-                mdist[f]+=sim[i]*codist[i][f]
+                mdist[f]+=(sim[i].inc)*codist[i][f]
         s = sum(mdist[x] for x in mdist)
         for x in mdist:
             mdist[x] = mdist[x]/s
         return mdist
+    def _2day_predict(self,n1=9,n2=2):
+        sdate = ['Dec','1','2000']
+        edate = time.strftime('%b %d %Y').split()
+        data = DailyData('yrd',sdate,edate).getData()
+        self.n_day_bayes_train(n1,sdate,edate)
+        self.ngram_train(n2,sdate,edate)
+        nd_evd = [self.rule.fit(x.inc) for x in data[-n1:]]
+        ng_evd = [self.rule.fit(x.inc) for x in data[-n2:]]
+        day1_nd = self.n_day_bayes_dist(n1,nd_evd)
+        day1_ng = self.ngram_dist(n2,ng_evd)
+        day1 = {x:day1_nd[x]/2+day1_ng[x]/2 for x in self.rule.rule}
         
+        day2 = {x:0 for x in self.rule.rule}
+        for f in self.rule.rule:
+            nd2_evd = nd_evd[1:]+[f]
+            ng2_evd = ng_evd[1:]+[f]
+            day2_nd = self.n_day_bayes_dist(n1,nd2_evd)
+            day2_ng = self.ngram_dist(n2,ng2_evd)
+            for k in self.rule.rule:
+                day2[k] += day1[f]*(day2_nd[k]/2+day2_ng[k]/2)
+        return [day1,day2]
 
 
-# In[19]:
+# In[106]:
 
 yrd = BbayesSS(code = 'yrd')
+h = yrd._2day_predict()
+
+
+# In[99]:
+
+#yrd = BbayesSS(code = 'yrd')
 sdate = ['Dec','1','2000']
 edate = ['Dec','29','2016']
-data = DailyData('yrd',sdate,edate).getData()
-x = BbayesSS(code = 'x')
-bac = BbayesSS(code = 'bac')
-jpm = BbayesSS(code = 'jpm')
+#data = DailyData('yrd',sdate,edate).getData()
+#x = BbayesSS(code = 'x')
+#bac = BbayesSS(code = 'bac')
+#jpm = BbayesSS(code = 'jpm')
 #lmt = BbayesSS(code = 'lmt')
-nyt = BbayesSS(code = 'nyt')
-coset = [x,bac,jpm,nyt]
-yrd.n_day_bayes_train(9,sdate,edate)
-for stk in coset:
-    print(stk.code)
-    stk.n_day_bayes_train(9,sdate,edate)
-yrd.n_day_bayes_codist(9,data[-9:])
+#nyt = BbayesSS(code = 'nyt')
+#coset = [x,bac,jpm,nyt]
+#yrd.n_day_bayes_train(9,sdate,edate)
+#for stk in coset:
+#    print(stk.code)
+#    stk.n_day_bayes_train(9,sdate,edate)
+#yrd.n_day_bayes_codist(9,data[-9:],coset)
+
+
+# In[32]:
+
+w = yrd.n_day_bayes_dist(9,data[-9:])
+
+
+# In[54]:
+
+plt.figure(figsize=(10,4))
+plt.xticks(range(len(w)),yrd.rule.rule)
+plt.bar(range(len(w)),[w[x]for x in yrd.rule.rule],1,align = 'center')
+
+
+# In[55]:
+
+yrd.ngram_train(2,sdate,edate)
+ww = yrd.ngram_dist(2,data[-2:])
+
+
+# In[57]:
+
+plt.figure(figsize=(10,4))
+plt.xticks(range(len(ww)),yrd.rule.rule)
+plt.bar(range(len(ww)),[ww[x]for x in yrd.rule.rule],1,align = 'center')
+
+
+# In[58]:
+
+wz = {x:w[x]/2+ww[x]/2 for x in yrd.rule.rule}
+
+
+# In[59]:
+
+plt.figure(figsize=(10,4))
+plt.xticks(range(len(wz)),yrd.rule.rule)
+plt.bar(range(len(wz)),[wz[x]for x in yrd.rule.rule],1,align = 'center')
+
+
+# In[107]:
+
+yrd.n_day_bayes_train(9,sdate,edate,True)
+
+
+# In[108]:
+
+dd = DailyData('yrd',sdate,edate,True).getData()[-9:]
+
+
+# In[113]:
+
+yrd.n_day_bayes_dist(9,dd)
 
