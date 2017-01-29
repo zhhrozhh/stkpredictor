@@ -5,7 +5,7 @@ import urllib.request
 import csv
 import io
 class StkDataSet:
-    def __init__(self,scode,hourly = False,sdate=['Dec','1','1960'],edate=['Dec','1','2200']):
+    def __init__(self,scode,hourly = False,sdate=['Dec','1','2000'],edate=['Dec','1','2017']):
         if not hourly:
             f = urllib.request.urlopen('http://www.google.com/finance/historical?q='+ \
                            scode+\

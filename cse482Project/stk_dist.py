@@ -10,12 +10,13 @@ class StkDist:
             self.category = sorted(arg['category'])
         else:
             self.category = DEFAULT_CATEGORY
-            self.dist = {x:0 for x in self.category}
-    def plot(self,value):
+        self.dist = {x:0 for x in self.category}
+    def plot(self,):
         plt.close()
         plt.figure(figsize=(10,4))
         plt.xticks(range(len(self.category)),self.category)
-        plt.bar(range(len(self.category)),[self.dist[x] for x in self.category])
+        plt.bar(range(len(self.category)),[self.dist[x] for x in self.category],1,align = 'center')
+        plt.show()
     def exp(self):
         for i in range(len(self.category)):
             if self.category[i]>0:
@@ -75,7 +76,7 @@ class Queue_n:
             self.sat = True
     def to_feature_string(self,t):
         if self.sat:
-            return str(self.q[:-t])
+            return str(self.q[:self.n-t])
         raise Exception('no enough elements')
 def category_fit(category,value):
     for i in range(len(category)-1):

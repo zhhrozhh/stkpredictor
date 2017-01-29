@@ -1,0 +1,108 @@
+\documentclass[11pt]{report}
+\usepackage{cite}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{tikz-cd}
+\usepackage{comment}
+\usepackage[numbers]{natbib}
+
+\title{CSE 482 Project Proposal\\
+\large Stock Market Analysis}
+\author{Hanghang Zhang A47035780}
+\begin{document}
+\maketitle
+\begin{abstract}
+This project uses historical stock price to predict a probability distribution for upcoming price variance. \\
+The primary purpose of this project is to analysis the behavior of stock market with some machine learning algorithms, and try to compare performances between algorithms.
+\end{abstract}
+\tableofcontents
+\chapter{Sources}
+\section{Daily Data}
+
+Daily data used by this project are public accessible at:\\
+http://www.google.com/finance/historical\\
+With query:\\
+\{\\
+q: \textbf{Stock Code},\\
+startdate: \textbf{Month Code}+\textbf{Date}+\%2C+\textbf{Year},\\
+enddate: \textbf{Month Code}+\textbf{Date}+\%2C+\textbf{Year},\\
+output: csv\\
+\}
+\section{Hourly Data}
+
+Hourly data used by this project are public accessible at:\\
+https://www.google.com/finance/getprices\\
+With query:
+\{\\
+i: 3600,\\
+p: 600d,\\
+f: [d,o,h,l,c,v],\\
+df: cpct,\\
+q: \textbf{Stock Code}\\ 
+\}
+
+\chapter{Project Plan}
+
+\section{Data Collection}
+Data collection part will be simply done with python scripts. All data used in this project are quoted from Google Finance(See: https://www.google.com/finance).
+\section{Data Process}
+
+\subsection{Data Normalization}
+For most of machine learning models, the input data need to be nicely distributed in a certain set or a small range. But the range of stock price is a positive real number, and the average price varies from company to company. So the raw data from the Internet will not be applied to machine learning algorithms directly. The very initial plan to normalize the raw data is, transform the the daily price to daily variance. After doing so, the range of input data theoretically turns to $(-\infty,\infty)$, but for 99\% of situations, the average daily variance of certain stock will not excess 15\%, base on this assumption, we can fit the daily variance of a stock into a category like $\{(\infty,-15\%],(-15\%,-2\%\},(-2\%,2\%),[2\%,15\%),[15\%,\infty)$. And the category should be customizable from the front end web app.
+
+\subsection{Similarity}
+Most supervised machine learning algorithms need a huge amount of training data(historical price in this case) to achieve a decent performance. The idea to improve algorithm performance for some new companies with very few training data, historical data from other similar companies will be used.\\
+So the task here is to determine how similar are two given companies is. One approach in the project plan is to apply cosine similarity. First, looking for some other companies with sufficient amount of data records, and then determine the similarity between it and the new company. A linear combination of those elder companies' result will be used as the new company's distribution, and the weight for each term in the combination depends on the similarity between that company and the new company.\\
+The cosine similarity of two data sets is defined to be:
+$$S_{cos}({DataSet}_1,{DataSet}_2) = \frac{<{DataSet}_1,{DataSet}_2>}{\sqrt{<{DataSet}_1,{DataSet}_1><{DataSet}_2,{DataSet}_2>}}$$
+The above formula requires ${DataSet}_1$ and ${DataSet}_2$ to have the same dimension, but obviously that the dimension(number of records in this case) of new company is much less than elder companies'\\
+So we need to redefine a new cosine similarity so that it could work for our specific circumstance.\\
+The convolution trick can be used here to deal with data sets of different dimensions.
+Suppose the smaller data set ${DataSet}_1$ has dimension of $n$ while the larger set ${DataSet}_2$ has dimension of $n+k$ for some $k\geq 0$, then we use ${DataSet}_1$ as convolutional core and define $S^{*}_{cos}$ as
+$$S^{*}_{cos} := \frac{\sum_{j=1}^{k}{S_{cos}({DataSet}_1,{DataSet}_2[j:n+j])}}{k} $$\\
+Just like cosine similarity, the idea of co-variance in statistic can be used as a measure of similarity as well, co-variance represent the correlation between data sets, when two sequences increasing or decreasing synchronously, the cov between them will increase. So it seems like cov could be a good measure for similarity, and in the report of this project, an analysis between two different similarities will be given.\\
+Definition of cov similarity that used in this project:
+$$S_{cov}(D_1,D_2) = \frac{\sum_{i=1}^{k}{cov(D_1,D_2[i:i+k])}}{k}$$
+\subsection{Machine Learning Algorithms}
+Due to the time limit, this project will not use complicated machine learning models, and the prediction of probability distribution will mainly come from naive Bayes classifiers and n-gram algorithm.\\
+Naive Bayes model for this project assumes that the price variance of the t th day depends on previous n days, and previous n days are independent to each other.\\ 
+And the n-gram algorithm will calculate $$\sum_{X\in Category} P({Day}_k \in X | {Day}_{k-1}\in Y_{k-1},...,{Day}_{k-n} \in Y_{k-n})x^{{ord}(X)}$$
+Where $Y_j$s are some labels, and $ord : {Category} \rightarrow \mathbb{Z}$ can be any injective map.
+\subsection{Refinement of Results}
+Multiple machine learning models with different parameters will be trained by the same set of training data, thus when input comes, different distributions will be generated. The plan is to select the best one from them or generate a better distribution base on them.\\
+A back propagation neural network with k input nodes and n output nodes can be used to refine k distributions of n categories as shown in the graph below.\\
+\begin{figure}[h]
+\includegraphics[width = \linewidth]{BPNN.png}
+\end{figure}
+\\
+Another traditional way to get a result base on the k distributions is using linear combination. Suppose k result distributions are $D_1,...,D_k$, then the result distribution will be $$D^* := \sum_{i=1}^{k}{D_i\lambda_i}$$
+where $\lambda_i$ are weights for $D_i$.
+The vector $w = (\lambda_1,...,\lambda_k)^T$ which fits the previous k days best can be approached by solving the system
+ \[
+\begin{bmatrix}
+    {XD}_{11} & {XD}_{12} & \dots  & {XD}_{1k} \\
+    {XD}_{21} & {XD}_{22} & \dots  & {XD}_{2k} \\
+    \vdots & \vdots & \ddots & \vdots \\
+    {XD}_{k1} & {XD}_{k2} & \dots  & {XD}_{kk}
+\end{bmatrix}
+\begin{bmatrix}
+	\lambda_1\\
+	\lambda_2\\
+	\vdots\\
+	\lambda_k
+\end{bmatrix}
+=
+\begin{bmatrix}
+	{YD}_1\\
+	{YD}_2\\
+	\vdots\\
+	{YD}_k
+\end{bmatrix}
+\]
+$YD_i$ is the solution label for the $(n-k)$-th day, and $XD_{ij}$ is the label with highest probability in the distribution $B_j$ generated at $(n-i)$-th day.\\
+In the above system, all distributions generated in previous k days are used to build the matrix ${XD}$, if the matrix ${XD}$ happened to be invertible, we can use the method of least squares or add a perturbation to the system.
+\section{Front End}
+Front end web application will be available and accessible on a MSU web server, it will accept users requests in form of post query, and return a json string of the analysis result. If users access the url with a browser, the web app page will translate the result JSON data and present it in graphical chats. 
+
+\end{document}
